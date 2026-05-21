@@ -1,6 +1,10 @@
-// Synthesized animal sounds using the Web Audio API.
-// No external assets needed — everything is generated at runtime so it
-// deploys cleanly to Vercel with zero static audio files.
+// Animal sound playback.
+//
+// Strategy: for each animal we first try to play a real MP3 located in
+// /public/sounds/<id>.mp3 (drop your hooksounds.com downloads there using the
+// exact ids from data.ts — e.g. "leao.mp3", "preguica.mp3"). If that file is
+// missing or fails to load, we fall back to a Web Audio synthesis so the app
+// always makes some noise, even on a fresh deploy.
 
 let ctx: AudioContext | null = null;
 
@@ -14,6 +18,80 @@ function getCtx(): AudioContext {
   }
   return ctx;
 }
+
+// --- MP3 layer ----------------------------------------------------------------
+
+// Cache one HTMLAudioElement per animal. Re-using elements (instead of `new
+// Audio()` on every click) avoids the file being re-downloaded each replay.
+const audioCache = new Map<string, HTMLAudioElement>();
+// Which ids we've already proven have no MP3 file — skips repeat fetches.
+const missingMp3 = new Set<string>();
+// Which ids currently have an in-flight audio element so we can stop them
+// before starting a replay.
+const playing = new Set<string>();
+
+function mp3Url(id: string): string {
+  // Resolved relative to the app root; Vite serves /public verbatim.
+  return `${import.meta.env.BASE_URL}sounds/${id}.mp3`;
+}
+
+function tryPlayMp3(id: string): Promise<boolean> {
+  if (missingMp3.has(id)) return Promise.resolve(false);
+
+  let el = audioCache.get(id);
+  if (!el) {
+    el = new Audio(mp3Url(id));
+    el.preload = "auto";
+    audioCache.set(id, el);
+  }
+
+  // Stop any previous instance so back-to-back clicks always restart cleanly.
+  try {
+    el.pause();
+    el.currentTime = 0;
+  } catch {
+    /* some browsers throw if currentTime is set before metadata loaded */
+  }
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const cleanup = () => {
+      el!.removeEventListener("playing", onPlaying);
+      el!.removeEventListener("error", onError);
+      el!.removeEventListener("ended", onEnded);
+    };
+    const onPlaying = () => {
+      if (settled) return;
+      settled = true;
+      playing.add(id);
+      resolve(true);
+    };
+    const onError = () => {
+      if (settled) return;
+      settled = true;
+      missingMp3.add(id);
+      cleanup();
+      resolve(false);
+    };
+    const onEnded = () => {
+      playing.delete(id);
+      cleanup();
+    };
+    el!.addEventListener("playing", onPlaying, { once: true });
+    el!.addEventListener("error", onError, { once: true });
+    el!.addEventListener("ended", onEnded, { once: true });
+
+    el!.play().catch(() => {
+      if (settled) return;
+      settled = true;
+      missingMp3.add(id);
+      cleanup();
+      resolve(false);
+    });
+  });
+}
+
+// --- Synthesized fallback voicings -------------------------------------------
 
 type EnvelopeOptions = {
   attack?: number;
@@ -55,15 +133,12 @@ function noiseBuffer(audio: AudioContext, duration: number) {
   return buf;
 }
 
-// --- Individual animal voicings -------------------------------------------------
-
 function roar(audio: AudioContext, base: number, duration: number, gainScale = 1) {
   const t0 = audio.currentTime;
   const out = audio.createGain();
   out.gain.value = 0;
   out.connect(audio.destination);
 
-  // Filtered noise gives the breathy, throaty body
   const noise = audio.createBufferSource();
   noise.buffer = noiseBuffer(audio, duration);
   const bp = audio.createBiquadFilter();
@@ -73,7 +148,6 @@ function roar(audio: AudioContext, base: number, duration: number, gainScale = 1
   bp.frequency.exponentialRampToValueAtTime(base, t0 + duration);
   noise.connect(bp).connect(out);
 
-  // Growling low oscillator with descending pitch
   const osc = audio.createOscillator();
   osc.type = "sawtooth";
   osc.frequency.setValueAtTime(base * 1.4, t0);
@@ -91,7 +165,6 @@ function roar(audio: AudioContext, base: number, duration: number, gainScale = 1
 }
 
 function trumpet(audio: AudioContext, duration: number) {
-  // Elephant-style trumpet
   const t0 = audio.currentTime;
   const out = audio.createGain();
   out.gain.value = 0;
@@ -115,7 +188,6 @@ function trumpet(audio: AudioContext, duration: number) {
 }
 
 function moo(audio: AudioContext) {
-  // Two-syllable mooo
   const t0 = audio.currentTime;
   const out = audio.createGain();
   out.gain.value = 0;
@@ -138,7 +210,6 @@ function moo(audio: AudioContext) {
 }
 
 function bark(audio: AudioContext, count: number, base: number) {
-  // Series of short barks (dog/wolf)
   const t = audio.currentTime;
   for (let i = 0; i < count; i++) {
     const start = t + i * 0.25;
@@ -224,7 +295,6 @@ function dolphin(audio: AudioContext) {
 }
 
 function shark(audio: AudioContext) {
-  // Tense underwater "swoosh"
   const t0 = audio.currentTime;
   const out = audio.createGain();
   out.gain.value = 0;
@@ -296,7 +366,6 @@ function neigh(audio: AudioContext) {
   osc.type = "sawtooth";
   osc.frequency.setValueAtTime(420, t0);
   osc.frequency.linearRampToValueAtTime(520, t0 + 0.1);
-  // Trill section
   for (let i = 0; i < 6; i++) {
     osc.frequency.linearRampToValueAtTime(360 + (i % 2) * 200, t0 + 0.15 + i * 0.08);
   }
@@ -322,7 +391,6 @@ function baa(audio: AudioContext) {
   osc.type = "sawtooth";
   osc.frequency.setValueAtTime(400, t0);
 
-  // Vibrato to get the wobbly bleat
   const lfo = audio.createOscillator();
   lfo.frequency.value = 14;
   const lfoGain = audio.createGain();
@@ -416,7 +484,6 @@ function walrusGrunt(audio: AudioContext) {
 }
 
 function slothYawn(audio: AudioContext) {
-  // Long, breathy yawn-like ahhhh
   const t0 = audio.currentTime;
   const duration = 1.8;
   const out = audio.createGain();
@@ -449,12 +516,10 @@ function slothYawn(audio: AudioContext) {
 }
 
 function jaguarSnarl(audio: AudioContext) {
-  // Lower, growlier than a lion
   roar(audio, 70, 1.2, 1.0);
 }
 
 function giraffeHum(audio: AudioContext) {
-  // Giraffes hum low — gentle
   const t0 = audio.currentTime;
   const out = audio.createGain();
   out.gain.value = 0;
@@ -471,7 +536,6 @@ function giraffeHum(audio: AudioContext) {
 }
 
 function zebraBray(audio: AudioContext) {
-  // Like a soft donkey bray
   const t0 = audio.currentTime;
   for (let i = 0; i < 2; i++) {
     const start = t0 + i * 0.6;
@@ -491,9 +555,7 @@ function zebraBray(audio: AudioContext) {
   }
 }
 
-// --- Public dispatch ----------------------------------------------------------
-
-export function playAnimalSound(id: string): void {
+function playSynth(id: string): void {
   const audio = getCtx();
   switch (id) {
     case "leao":
@@ -557,13 +619,24 @@ export function playAnimalSound(id: string): void {
       howl(audio);
       return;
     default:
-      // Fallback: short generic chirp
       bark(audio, 2, 500);
   }
 }
 
-// Optional: pre-arm the audio context. Browsers require user gesture, so
-// callers should invoke this from a click/tap handler before relying on it.
+// --- Public API ---------------------------------------------------------------
+
+export async function playAnimalSound(id: string): Promise<void> {
+  // Resume the audio context on demand (browsers need a user gesture first).
+  getCtx();
+
+  const ok = await tryPlayMp3(id);
+  if (!ok) {
+    playSynth(id);
+  }
+}
+
+// Pre-arm the audio context. Call from a click/tap so the first real play has
+// no latency. Safe to call repeatedly.
 export function unlockAudio(): void {
   getCtx();
 }

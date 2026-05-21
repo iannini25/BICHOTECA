@@ -71,7 +71,7 @@ export const biomes: Biome[] = [
     name: "POLO NORTE",
     color: "#A8DADC", // azul claro
     emoji: "🐧",
-    sceneryEmoji: "🧊",
+    sceneryEmoji: "❄️",
     animals: [
       { id: "pinguim", name: "PINGUIM", emoji: "🐧" },
       { id: "urso", name: "URSO POLAR", emoji: "🐻‍❄️" },

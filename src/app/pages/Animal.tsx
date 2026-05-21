@@ -19,7 +19,7 @@ export function AnimalView() {
   const playSound = useCallback(() => {
     if (!animal) return;
     unlockAudio();
-    playAnimalSound(animal.id);
+    void playAnimalSound(animal.id);
     setIsPlaying(true);
     if (stopTimer.current) window.clearTimeout(stopTimer.current);
     stopTimer.current = window.setTimeout(() => setIsPlaying(false), 2200);
@@ -43,7 +43,10 @@ export function AnimalView() {
       animate={{ y: 0 }}
       exit={{ y: "100%" }}
       transition={{ type: "spring", damping: 25, stiffness: 200 }}
-      className="flex-1 flex flex-col p-6 overflow-hidden relative"
+      onClick={playSound}
+      className="flex-1 flex flex-col p-6 overflow-hidden relative cursor-pointer select-none"
+      role="button"
+      aria-label={`Toque para ouvir o som da ${animal.name} de novo`}
     >
       <div
         className="absolute inset-0 z-0"
@@ -58,7 +61,10 @@ export function AnimalView() {
 
       <header className="flex items-center py-4 z-10">
         <CircularButton
-          onClick={() => navigate(-1)}
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(-1);
+          }}
           className="w-14 h-14 shrink-0"
         >
           <ArrowLeft size={28} className="text-[#5D4037]" />
@@ -102,12 +108,15 @@ export function AnimalView() {
         </h2>
 
         <p className="text-white/90 text-xl font-medium mb-12 bg-black/10 px-6 py-2 rounded-full">
-          Toque para ouvir de novo!
+          Toque na tela para ouvir de novo!
         </p>
 
         <CircularButton
           variant="yellow"
-          onClick={playSound}
+          onClick={(e) => {
+            e.stopPropagation();
+            playSound();
+          }}
           className="w-[100px] h-[100px] mt-auto mb-8 shadow-[0_8px_16px_rgba(0,0,0,0.2)] hover:scale-105 active:scale-95"
         >
           <Volume2 size={48} className={isPlaying ? "animate-pulse text-[#4CAF50]" : "text-[#5D4037]"} />

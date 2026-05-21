@@ -5,6 +5,7 @@ import { CircularButton } from "../components/Button";
 import { AnimalIcon } from "../components/AnimalIcon";
 import { biomes } from "../data";
 import { playAnimalSound, unlockAudio } from "../utils/sounds";
+import { SceneryIcon } from "../components/SceneryIcon";
 
 export function BiomeView() {
   const { id } = useParams();
@@ -21,9 +22,14 @@ export function BiomeView() {
       className="flex-1 flex flex-col p-6 overflow-y-auto relative"
       style={{ backgroundColor: biome.color }}
     >
-      <div className="absolute inset-0 pointer-events-none opacity-20 flex flex-wrap gap-8 p-8 justify-center content-start">
+      <div className="absolute inset-0 pointer-events-none opacity-20 flex flex-wrap gap-8 p-8 justify-center content-start text-white">
         {Array.from({ length: 12 }).map((_, i) => (
-          <span key={i} className="text-4xl">{biome.sceneryEmoji}</span>
+          <SceneryIcon
+            key={i}
+            biomeId={biome.id}
+            emoji={biome.sceneryEmoji}
+            size={36}
+          />
         ))}
       </div>
 
@@ -53,7 +59,7 @@ export function BiomeView() {
                 onClick={(e) => {
                   e.stopPropagation();
                   unlockAudio();
-                  playAnimalSound(animal.id);
+                  void playAnimalSound(animal.id);
                 }}
                 className="absolute top-3 right-3 text-[#A1887F] bg-gray-100 p-1.5 rounded-full active:bg-[#FFD54F] active:text-[#5D4037] transition-colors"
                 aria-label={`Ouvir o som da ${animal.name}`}

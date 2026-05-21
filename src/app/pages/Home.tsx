@@ -2,6 +2,7 @@ import { useNavigate } from "react-router";
 import { motion } from "motion/react";
 import { Settings } from "lucide-react";
 import { biomes } from "../data";
+import { SceneryIcon } from "../components/SceneryIcon";
 
 export function Home() {
   const navigate = useNavigate();
@@ -42,8 +43,12 @@ export function Home() {
             style={{ backgroundColor: biome.color }}
           >
             {/* Background Scenery Element */}
-            <div className="absolute top-4 right-4 text-5xl opacity-40">
-              {biome.sceneryEmoji}
+            <div className="absolute top-4 right-4 opacity-40 text-white">
+              <SceneryIcon
+                biomeId={biome.id}
+                emoji={biome.sceneryEmoji}
+                size={48}
+              />
             </div>
             
             <div className="flex-1 flex items-center justify-center w-full z-10">
